@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 	int n_adaps, m_adaps;
 	int c, i, j, k, from_stdin;
 	int sa = 1, sb = 2, go = 1, ge = 3, type = 1;
-	int min_sc = 15;
+	int min_sc = 15, min_len = 10;
 	double max_diff = 0.15;
 	ta_adap_t *adaps;
 	kseq_t *ks;
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	kstring_t str = {0,0,0};
 
 	n_adaps = m_adaps = 0; adaps = 0;
-	while ((c = getopt(argc, argv, "5:3:s:t:")) >= 0) {
+	while ((c = getopt(argc, argv, "5:3:s:t:l:")) >= 0) {
 		if (c == '5' || c == '3') {
 			ta_adap_t *p;
 			if (m_adaps == n_adaps) {
@@ -62,6 +62,7 @@ int main(int argc, char *argv[])
 			if (strcmp(optarg, "ilpe") == 0) type = 1;
 		} else if (c == 's') min_sc = atoi(optarg);
 		else if (c == 'd') max_diff = atof(optarg);
+		else if (c == 'l') min_len = atoi(optarg);
 	}
 
 	// preset
@@ -85,7 +86,14 @@ int main(int argc, char *argv[])
 
 	from_stdin = !isatty(fileno(stdin));
 	if (optind == argc && !from_stdin) {
-		fprintf(stderr, "Usage: trimadap [-5 seq] [-3 seq] <in.fq>\n");
+		fprintf(stderr, "\n");
+		fprintf(stderr, "Usage:   trimadap [options] <in.fq>\n\n");
+		fprintf(stderr, "Options: -5 STR     5'-end adapter\n");
+		fprintf(stderr, "         -3 STR     3'-end adapter\n");
+		fprintf(stderr, "         -l INT     min length [%d]\n", min_len);
+		fprintf(stderr, "         -s INT     min score [%d]\n", min_sc);
+		fprintf(stderr, "         -d FLOAT   max difference [%.3f]\n", max_diff);
+		fprintf(stderr, "\n");
 		return 1; // FIXME: memory leak
 	}
 
@@ -111,12 +119,11 @@ int main(int argc, char *argv[])
 			double diff;
 			int type;
 			ta_adap_t *p = &adaps[j];
-			r = ksw_align(p->len, p->seq, str.l, (uint8_t*)str.s, 5, mat, go, ge, KSW_XBYTE|KSW_XSTART|min_sc, &p->qp);
+			r = ksw_align(p->len, p->seq, str.l, (uint8_t*)str.s, 5, mat, go, ge, KSW_XBYTE|KSW_XSTART|(min_len*sa), &p->qp);
 			++r.te; ++r.qe; // change to 0-based
 			k = r.qe - r.qb < r.te - r.tb? r.qe - r.qb : r.te - r.tb;
 			diff = (double)(k * sa - r.score) / sb / k;
 			//printf("%d:%.3f [%d,%d):%d <=> [%d,%d):%d\n", r.score, diff, r.qb, r.qe, p->len, r.tb, r.te, (int)str.l);
-			if (r.score < min_sc || diff > max_diff) continue;
 			if (r.qb <= r.tb && p->len - r.qe <= str.l - r.te) { // contained
 				if (r.qb * sa > sa + sb) continue;
 				if ((p->len - r.qe) * sa > sa + sb) continue;
@@ -129,6 +136,18 @@ int main(int argc, char *argv[])
 				if ((p->len - r.qe) * sa > sa + sb) continue;
 				if (r.tb * sa > sa + sb) continue;
 				type = 3;
+			}
+			if (p->type == 5) {
+				if (r.tb == 0 && r.qe == p->len && (r.te - r.tb) * sa == r.score)
+					type = 4;
+			} else if (p->type == 3) {
+				if (r.qb == 0 && r.te == str.l && (r.te - r.tb) * sa == r.score)
+					type = 4;
+			}
+			if (type == 4) {
+				if (r.te - r.tb < min_len) continue;
+			} else {
+				if (r.score < min_sc || diff > max_diff) continue;
 			}
 			++p->cnt;
 			if (p->type == 5) {
