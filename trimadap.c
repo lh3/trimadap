@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 	int n_adaps, m_adaps;
 	int c, i, j, k, from_stdin;
 	int sa = 1, sb = 2, go = 1, ge = 3, type = 1;
-	int min_sc = 16;
+	int min_sc = 15;
 	double max_diff = 0.15;
 	ta_adap_t *adaps;
 	kseq_t *ks;
