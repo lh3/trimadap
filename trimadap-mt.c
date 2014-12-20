@@ -150,15 +150,12 @@ bseq1_t *bseq_read(kseq_t *ks, int chunk_size, int *n_)
  * Trim one seq *
  ****************/
 
-void ta_trim1(ta_opt_t *opt, char *seq, kstring_t *str) // str is a temporary array
+void ta_trim1(ta_opt_t *opt, char *seq)
 {
 	int i, j, k;
+	kstring_t _str = {0,0,0}, *str = &_str;
 	str->l = strlen(seq);
-	if (str->m < str->l) {
-		str->m = str->l;
-		kroundup32(str->m);
-		str->s = realloc(str->s, str->m);
-	}
+	str->s = malloc(str->l);
 	for (i = 0; i < str->l; ++i)
 		str->s[i] = seq_nt4_table[(uint8_t)seq[i]];
 	for (j = 0; j < opt->n_adaps; ++j) {
@@ -206,6 +203,7 @@ void ta_trim1(ta_opt_t *opt, char *seq, kstring_t *str) // str is a temporary ar
 			for (i = k; i < str->l; ++i) seq[i] = 'X';
 		}
 	}
+	free(str->s);
 }
 
 /**********************
@@ -219,13 +217,12 @@ typedef struct {
 	int n_seqs;
 	bseq1_t *seqs;
 	ta_opt_t *opt;
-	kstring_t *str;
 } data_for_t;
 
 static void worker_for(void *_data, long i, int tid)
 {
 	data_for_t *data = (data_for_t*)_data;
-	ta_trim1(data->opt, data->seqs[i].seq, &data->str[tid]);
+	ta_trim1(data->opt, data->seqs[i].seq);
 }
 
 static void *worker_pipeline(void *shared, int step, void *_data)
@@ -241,11 +238,7 @@ static void *worker_pipeline(void *shared, int step, void *_data)
 		else free(ret);
 	} else if (step == 1) {
 		data_for_t *data = (data_for_t*)_data;
-		data->str = calloc(opt->n_threads, sizeof(kstring_t));
 		kt_for(opt->n_threads, worker_for, data, data->n_seqs);
-		for (i = 0; i < opt->n_threads; ++i)
-			free(data->str[i].s);
-		free(data->str); data->str = 0;
 		return data;
 	} else if (step == 2) {
 		data_for_t *data = (data_for_t*)_data;
