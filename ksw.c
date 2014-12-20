@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <emmintrin.h>
 #include "ksw.h"
 
@@ -327,12 +328,13 @@ static void revseq(int l, uint8_t *s)
 		t = s[i], s[i] = s[l - 1 - i], s[l - 1 - i] = t;
 }
 
-kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry)
+kswr_t ksw_align(int qlen, const uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry)
 {
 	int size;
 	kswq_t *q;
 	kswr_t r, rr;
 	kswr_t (*func)(kswq_t*, int, const uint8_t*, int, int, int);
+	uint8_t *copy;
 
 	q = (qry && *qry)? *qry : ksw_qinit((xtra&KSW_XBYTE)? 1 : 2, qlen, query, m, mat);
 	if (qry && *qry == 0) *qry = q;
@@ -341,11 +343,13 @@ kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, con
 	r = func(q, tlen, target, gapo, gape, xtra);
 	if (qry == 0) free(q);
 	if ((xtra&KSW_XSTART) == 0 || ((xtra&KSW_XSUBO) && r.score < (xtra&0xffff))) return r;
-	revseq(r.qe + 1, query); revseq(r.te + 1, target); // +1 because qe/te points to the exact end, not the position after the end
-	q = ksw_qinit(size, r.qe + 1, query, m, mat);
+	copy = (uint8_t*)malloc(r.qe + 1);
+	memcpy(copy, query, r.qe + 1);
+	revseq(r.qe + 1, copy); revseq(r.te + 1, target); // +1 because qe/te points to the exact end, not the position after the end
+	q = ksw_qinit(size, r.qe + 1, copy, m, mat);
 	rr = func(q, tlen, target, gapo, gape, KSW_XSTOP | r.score);
-	revseq(r.qe + 1, query); revseq(r.te + 1, target);
-	free(q);
+	revseq(r.te + 1, target);
+	free(q); free(copy);
 	if (r.score == rr.score)
 		r.tb = r.te - rr.te, r.qb = r.qe - rr.qe;
 	return r;

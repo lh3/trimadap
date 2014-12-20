@@ -60,7 +60,7 @@ extern "C" {
 	 * freed after the last call. Note that qry can equal 0. In this case, the
 	 * query profile will be deallocated in ksw_align().
 	 */
-	kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry);
+	kswr_t ksw_align(int qlen, const uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry);
 
 #ifdef __cplusplus
 }
