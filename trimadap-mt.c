@@ -172,11 +172,11 @@ void ta_trim1(ta_opt_t *opt, char *seq)
 			if (r.qb * opt->sa > opt->sa + opt->sb) continue;
 			if ((p->len - r.qe) * opt->sa > opt->sa + opt->sb) continue;
 			type = 1;
-		} else if (r.qb <= r.tb) { // 3' overlap
+		} else if (r.qb <= r.tb) { // 3'-end overlap
 			if (r.qb * opt->sa > opt->sa + opt->sb) continue;
 			if ((str->l - r.te) * opt->sa > opt->sa + opt->sb) continue;
 			type = 2;
-		} else {
+		} else { // 5'-end overlap
 			if ((p->len - r.qe) * opt->sa > opt->sa + opt->sb) continue;
 			if (r.tb * opt->sa > opt->sa + opt->sb) continue;
 			type = 3;
@@ -188,9 +188,9 @@ void ta_trim1(ta_opt_t *opt, char *seq)
 			if (r.qb == 0 && r.te == str->l && (r.te - r.tb) * opt->sa == r.score)
 				type = 4;
 		}
-		if (type == 4) {
+		if (type == 4) { // exact match
 			if (r.te - r.tb < opt->min_len) continue;
-		} else {
+		} else { // inexact match
 			if (r.score < opt->min_sc || diff > opt->max_diff) continue;
 		}
 		__sync_fetch_and_add(&p->cnt, 1);
