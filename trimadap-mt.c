@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
 	if (opt.n_adaps == 0) ta_opt_default_adaps(&opt);
 
 	if (optind == argc && isatty(fileno(stdin))) {
-		fprintf(stderr, "Usage: trimadap-mt [options] <in.fq>\n");
+		fprintf(stderr, "Usage: trimadap-mt-r8 [options] <in.fq>\n");
 		fprintf(stderr, "Options:\n");
 		fprintf(stderr, "  -5 STR     5'-end adapter\n");
 		fprintf(stderr, "  -3 STR     3'-end adapter\n");
