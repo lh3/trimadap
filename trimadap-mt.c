@@ -9,6 +9,8 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
+#define VERSION "r9"
+
 /***************
  * CMD options *
  ***************/
@@ -40,7 +42,7 @@ typedef struct {
 
 typedef struct {
 	int sa, sb, go, ge; // scoring; not exposed to the command line, for now
-	int min_sc, min_len;
+	int min_sc, min_len, min_trim_len;
 	int n_threads;
 	int chunk_size;
 	double max_diff;
@@ -65,7 +67,7 @@ void ta_opt_init(ta_opt_t *opt)
 {
 	memset(opt, 0, sizeof(ta_opt_t));
 	opt->sa = 1, opt->sb = 2, opt->go = 1, opt->ge = 3;
-	opt->min_sc = 15, opt->min_len = 10, opt->max_diff = .15f;
+	opt->min_sc = 15, opt->min_len = 8, opt->min_trim_len = 1000000, opt->max_diff = .15f;
 	opt->n_threads = 1, opt->chunk_size = 10000000;
 	ta_opt_set_mat(opt->sa, opt->sb, opt->mat);
 }
@@ -206,6 +208,20 @@ void ta_trim1(ta_opt_t *opt, char *seq)
 	free(str->s);
 }
 
+static void apply_trim(int min_trim, int l_seq, char *seq, char *qual)
+{
+	int i;
+	while (l_seq > min_trim && seq[l_seq-1] == 'X') --l_seq;
+	for (i = 0; l_seq - i > min_trim && seq[i] == 'X';) ++i;
+	if (i > 0) {
+		memmove(seq, seq + i, l_seq - i + 1);
+		if (qual) memmove(qual, qual + i, l_seq - i + 1);
+		l_seq -= i;
+	}
+	seq[l_seq] = 0;
+	if (qual) qual[l_seq] = 0;
+}
+
 /**********************
  * Callback functions *
  **********************/
@@ -244,6 +260,8 @@ static void *worker_pipeline(void *shared, int step, void *_data)
 		data_for_t *data = (data_for_t*)_data;
 		for (i = 0; i < data->n_seqs; ++i) {
 			bseq1_t *s = &data->seqs[i];
+			if (opt->min_trim_len < s->l_seq)
+				apply_trim(opt->min_trim_len, s->l_seq, s->seq, s->qual);
 			putchar(s->qual? '@' : '>'); puts(s->name);
 			puts(s->seq);
 			if (s->qual) {
@@ -266,25 +284,32 @@ int main(int argc, char *argv[])
 	ta_opt_t opt;
 
 	ta_opt_init(&opt);
-	while ((c = getopt(argc, argv, "5:3:s:p:l:")) >= 0) {
+	while ((c = getopt(argc, argv, "5:3:s:p:l:t:v")) >= 0) {
 		if (c == '5' || c == '3') ta_opt_add_adap(&opt, c - '0', optarg);
 		else if (c == 's') opt.min_sc = atoi(optarg);
 		else if (c == 'd') opt.max_diff = atof(optarg);
 		else if (c == 'l') opt.min_len = atoi(optarg);
 		else if (c == 'p') opt.n_threads = atoi(optarg);
+		else if (c == 't') opt.min_trim_len = atoi(optarg);
+		else if (c == 'v') {
+			puts(VERSION);
+			return 0;
+		}
 	}
 
 	if (opt.n_adaps == 0) ta_opt_default_adaps(&opt);
 
 	if (optind == argc && isatty(fileno(stdin))) {
-		fprintf(stderr, "Usage: trimadap-mt-r8 [options] <in.fq>\n");
+		fprintf(stderr, "Usage: trimadap-mt [options] <in.fq>\n");
 		fprintf(stderr, "Options:\n");
 		fprintf(stderr, "  -5 STR     5'-end adapter\n");
 		fprintf(stderr, "  -3 STR     3'-end adapter\n");
 		fprintf(stderr, "  -l INT     min length [%d]\n", opt.min_len);
 		fprintf(stderr, "  -s INT     min score [%d]\n", opt.min_sc);
+		fprintf(stderr, "  -t INT     trim down [don't trim]\n");
 		fprintf(stderr, "  -d FLOAT   max difference [%.3f]\n", opt.max_diff);
 		fprintf(stderr, "  -p INT     number of trimmer threads [%d]\n", opt.n_threads);
+		fprintf(stderr, "  -v         print version number\n");
 		return 1; // FIXME: memory leak
 	}
 
