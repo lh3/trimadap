@@ -95,6 +95,7 @@ void ta_opt_default_adaps(ta_opt_t *opt)
 	if (opt->n_adaps) return;
 	ta_opt_add_adap(opt, 5, "AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT");
 	ta_opt_add_adap(opt, 3, "AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC");
+	ta_opt_add_adap(opt, 3, "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT");
 	ta_opt_add_adap(opt, 3, "ATCTCGTATGCCGTCTTCTGCTTG");
 }
 
