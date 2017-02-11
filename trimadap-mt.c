@@ -9,7 +9,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-#define VERSION "r9"
+#define VERSION "r11"
 
 /***************
  * CMD options *
@@ -123,7 +123,7 @@ void ta_opt_free(ta_opt_t *opt)
 
 typedef struct {
 	int l_seq;
-	char *name, *seq, *qual;
+	char *name, *seq, *qual, *comment;
 } bseq1_t;
 
 bseq1_t *bseq_read(kseq_t *ks, int chunk_size, int *n_)
@@ -141,6 +141,7 @@ bseq1_t *bseq_read(kseq_t *ks, int chunk_size, int *n_)
 		s->name = strdup(ks->name.s);
 		s->seq = strdup(ks->seq.s);
 		s->qual = ks->qual.l? strdup(ks->qual.s) : 0;
+		s->comment = ks->comment.l? strdup(ks->comment.s) : 0;
 		s->l_seq = ks->seq.l;
 		size += seqs[n++].l_seq;
 		if (size >= chunk_size) break;
@@ -263,12 +264,16 @@ static void *worker_pipeline(void *shared, int step, void *_data)
 			bseq1_t *s = &data->seqs[i];
 			if (opt->min_trim_len < s->l_seq)
 				apply_trim(opt->min_trim_len, s->l_seq, s->seq, s->qual);
-			putchar(s->qual? '@' : '>'); puts(s->name);
+			putchar(s->qual? '@' : '>'); fputs(s->name, stdout);
+			if (s->comment) {
+				putchar(' ');
+				puts(s->comment);
+			} else putchar('\n');
 			puts(s->seq);
 			if (s->qual) {
 				puts("+"); puts(s->qual);
 			}
-			free(s->seq); free(s->qual); free(s->name);
+			free(s->seq); free(s->qual); free(s->name); free(s->comment);
 		}
 		free(data->seqs); free(data);
 	}
